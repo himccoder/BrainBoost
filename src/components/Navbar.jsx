@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { Brain, BarChart2, Gamepad2, Home, LogOut, LogIn, User } from 'lucide-react'
+import { Brain, BarChart2, Gamepad2, Home, LogOut, LogIn, User, ClipboardList, Settings } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useState, useRef, useEffect } from 'react'
 
@@ -7,6 +7,7 @@ const navLinks = [
   { to: '/',          label: 'Home',        icon: Home },
   { to: '/games',     label: 'Brain Games', icon: Gamepad2 },
   { to: '/dashboard', label: 'My Progress', icon: BarChart2 },
+  { to: '/assessment?type=biweekly', label: 'Assessment', icon: ClipboardList, authOnly: true },
 ]
 
 function UserMenu({ user, profile, signOut }) {
@@ -42,17 +43,17 @@ function UserMenu({ user, profile, signOut }) {
             <p className="text-xs font-semibold text-slate-800 truncate">{profile?.name || 'User'}</p>
             <p className="text-xs text-slate-400 truncate">{user.email}</p>
           </div>
-          <Link
-            to="/dashboard"
-            onClick={() => setOpen(false)}
-            className="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"
-          >
+          <Link to="/dashboard" onClick={() => setOpen(false)}
+            className="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors">
             <BarChart2 size={14} /> My Progress
           </Link>
-          <button
-            onClick={() => { signOut(); setOpen(false) }}
-            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-rose-600 hover:bg-rose-50 transition-colors"
-          >
+          <Link to="/profile" onClick={() => setOpen(false)}
+            className="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors">
+            <Settings size={14} /> My Profile
+          </Link>
+          <div className="border-t border-slate-50 my-1" />
+          <button onClick={() => { signOut(); setOpen(false) }}
+            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-rose-500 hover:bg-rose-50 transition-colors">
             <LogOut size={14} /> Sign Out
           </button>
         </div>
@@ -76,8 +77,9 @@ export default function Navbar() {
         </Link>
 
         <div className="flex items-center gap-1">
-          {navLinks.map(({ to, label, icon: Icon }) => {
-            const isActive = pathname === to
+          {navLinks.map(({ to, label, icon: Icon, authOnly }) => {
+            if (authOnly && !user) return null
+            const isActive = pathname === to.split('?')[0]
             return (
               <Link
                 key={to}

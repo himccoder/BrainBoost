@@ -9,7 +9,7 @@ function EmailToast({ onClose }) {
   useEffect(() => {
     // Slight delay so the slide-in animation plays after mount
     const showTimer = setTimeout(() => setVisible(true), 50)
-    const hideTimer = setTimeout(() => { setVisible(false); setTimeout(onClose, 400) }, 6000)
+    const hideTimer = setTimeout(() => { setVisible(false); setTimeout(onClose, 400) }, 9000)
     return () => { clearTimeout(showTimer); clearTimeout(hideTimer) }
   }, [onClose])
 
@@ -28,7 +28,7 @@ function EmailToast({ onClose }) {
           Open your inbox and click the confirmation link to activate your account.
         </p>
         <div className="mt-2 h-1 bg-slate-100 rounded-full overflow-hidden">
-          <div className="h-full bg-brand-400 rounded-full animate-[shrink_6s_linear_forwards]" />
+          <div className="h-full bg-brand-400 rounded-full animate-[shrink_9s_linear_forwards]" />
         </div>
       </div>
       <button
@@ -97,14 +97,20 @@ export default function AuthPage() {
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
-    setSuccess('')
     setLoading(true)
 
     if (mode === 'signup') {
       if (!name.trim()) { setError('Please enter your name.'); setLoading(false); return }
       if (password.length < 6) { setError('Password must be at least 6 characters.'); setLoading(false); return }
-      const { error: err } = await signUp(email, password, name.trim())
+      const { data, error: err } = await signUp(email, password, name.trim())
       if (err) { setError(err.message); setLoading(false); return }
+      // Only show the "check your email" toast if confirmation is actually required.
+      // If the account was already confirmed or email confirmation is disabled,
+      // Supabase returns a session immediately — so we skip the toast and go straight to dashboard.
+      if (data.session) {
+        navigate('/dashboard')
+        return
+      }
       setShowToast(true)
       setMode('signin')
     } else {
@@ -137,7 +143,7 @@ export default function AuthPage() {
           {/* Tab toggle */}
           <div className="flex bg-slate-100 rounded-xl p-1 mb-6">
             <button
-              onClick={() => { setMode('signin'); setError(''); setSuccess('') }}
+              onClick={() => { setMode('signin'); setError('') }}
               className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all ${
                 mode === 'signin' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'
               }`}
@@ -145,7 +151,7 @@ export default function AuthPage() {
               Sign In
             </button>
             <button
-              onClick={() => { setMode('signup'); setError(''); setSuccess('') }}
+              onClick={() => { setMode('signup'); setError('') }}
               className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all ${
                 mode === 'signup' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'
               }`}

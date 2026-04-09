@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import GameWrapper from '../../components/GameWrapper'
 import GameResult from '../../components/GameResult'
 import { useProgress } from '../../context/ProgressContext'
@@ -10,29 +10,43 @@ const game = GAMES.find(g => g.id === 'sequence')
 const GRID_SIZE = 9
 const TILE_COLORS = ['bg-blue-400', 'bg-indigo-500', 'bg-blue-500']
 
+const SEQ_MODES = [
+  { id: 'forward',  label: 'Forward',  desc: 'Repeat the sequence in the same order.' },
+  { id: 'reverse',  label: 'Reverse',  desc: 'Repeat the sequence in reverse order.' },
+  { id: 'colors',   label: 'Colours',  desc: 'Tiles flash in different colours — remember each one.' },
+]
+
+const COLOR_TILES = ['#6366f1','#14b8a6','#f59e0b','#ef4444','#8b5cf6']
+
 function buildGrid() {
   return Array.from({ length: GRID_SIZE }, (_, i) => i)
 }
 
 export default function SequenceGame() {
   const { recordSession } = useProgress()
-  const [phase, setPhase] = useState('intro')   // intro | showing | input | correct | wrong | result
-  const [level, setLevel] = useState(3)          // sequence length
-  const [sequence, setSequence] = useState([])
-  const [playerSeq, setPlayerSeq] = useState([])
-  const [active, setActive] = useState(null)
-  const [bestLevel, setBestLevel] = useState(3)
-  const [lives, setLives] = useState(3)
-  const [flashId, setFlashId] = useState(null)
+  const [seqMode, setSeqMode]         = useState('forward')
+  const [phase, setPhase]             = useState('intro')
+  const [level, setLevel]             = useState(3)
+  const [sequence, setSequence]       = useState([])
+  const [colorSeq, setColorSeq]       = useState([])
+  const [playerSeq, setPlayerSeq]     = useState([])
+  const [active, setActive]           = useState(null)
+  const [activeColor, setActiveColor] = useState(null)
+  const [bestLevel, setBestLevel]     = useState(3)
+  const [lives, setLives]             = useState(3)
+  const [flashId, setFlashId]         = useState(null)
+  const seqModeRef  = useRef(seqMode)
+  const startTime   = useRef(null)
 
-  const showSequence = useCallback((seq) => {
+  const showSequence = useCallback((seq, cols) => {
     setPhase('showing')
     setPlayerSeq([])
     let i = 0
     const interval = setInterval(() => {
       sounds.tileShow()
       setActive(seq[i])
-      setTimeout(() => setActive(null), 500)
+      if (cols) setActiveColor(cols[i])
+      setTimeout(() => { setActive(null); setActiveColor(null) }, 500)
       i++
       if (i >= seq.length) {
         clearInterval(interval)
@@ -42,13 +56,19 @@ export default function SequenceGame() {
   }, [])
 
   function startLevel(len = level) {
-    const seq = Array.from({ length: len }, () => Math.floor(Math.random() * GRID_SIZE))
+    const seq  = Array.from({ length: len }, () => Math.floor(Math.random() * GRID_SIZE))
+    const cols = seqModeRef.current === 'colors'
+      ? Array.from({ length: len }, () => COLOR_TILES[Math.floor(Math.random() * COLOR_TILES.length)])
+      : null
     setSequence(seq)
+    setColorSeq(cols || [])
     setPlayerSeq([])
-    showSequence(seq)
+    showSequence(seq, cols)
   }
 
-  function startGame() {
+  function startGame(m = seqMode) {
+    seqModeRef.current = m
+    startTime.current  = Date.now()
     setLives(3)
     setBestLevel(3)
     setLevel(3)
@@ -64,8 +84,9 @@ export default function SequenceGame() {
     const newPlayerSeq = [...playerSeq, id]
     setPlayerSeq(newPlayerSeq)
 
+    const targetSeq = seqModeRef.current === 'reverse' ? [...sequence].reverse() : sequence
     const pos = newPlayerSeq.length - 1
-    if (id !== sequence[pos]) {
+    if (id !== targetSeq[pos]) {
       sounds.wrong()
       const newLives = lives - 1
       setLives(newLives)
@@ -73,11 +94,12 @@ export default function SequenceGame() {
       setTimeout(() => {
         if (newLives <= 0) {
           const accuracy = Math.round((bestLevel / (bestLevel + 3)) * 100)
-          const score = (bestLevel - 3) * 10 + (bestLevel >= 6 ? 20 : 0)
-          recordSession('sequence', score, accuracy)
+          const score    = (bestLevel - 3) * 10 + (bestLevel >= 6 ? 20 : 0)
+          const duration = startTime.current ? Math.round((Date.now() - startTime.current) / 1000) : null
+          recordSession('sequence', score, accuracy, duration)
           setPhase('result')
         } else {
-          showSequence(sequence)
+          showSequence(sequence, colorSeq.length > 0 ? colorSeq : null)
         }
       }, 1000)
       return
@@ -121,11 +143,19 @@ export default function SequenceGame() {
               Watch the tiles light up in a sequence, then tap them back in the <strong>same order</strong>.
               Each correct round adds one more tile to the sequence.
             </p>
-            <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-4 text-left text-sm text-slate-600">
-              <strong className="text-blue-700">How to win:</strong> Keep going as long as you can. You have 3 lives.
-              The longer the sequence you remember, the higher your score!
+            <div className="flex flex-col gap-2 mb-4">
+              {SEQ_MODES.map(m => (
+                <button key={m.id} onClick={() => setSeqMode(m.id)}
+                  className={`flex items-start gap-3 p-3 rounded-xl border-2 text-left transition-all ${seqMode === m.id ? 'border-blue-400 bg-blue-50' : 'border-slate-100 hover:border-slate-200'}`}>
+                  <div className={`w-4 h-4 rounded-full border-2 mt-0.5 shrink-0 ${seqMode === m.id ? 'bg-blue-500 border-blue-500' : 'border-slate-300'}`} />
+                  <div>
+                    <div className="font-semibold text-slate-700 text-sm">{m.label}</div>
+                    <div className="text-slate-400 text-xs">{m.desc}</div>
+                  </div>
+                </button>
+              ))}
             </div>
-            <button onClick={startGame} className="btn-primary w-full">Start Game</button>
+            <button onClick={() => startGame(seqMode)} className="btn-primary w-full">Start Game</button>
           </div>
         </div>
       )}
@@ -159,23 +189,25 @@ export default function SequenceGame() {
 
           {/* Tile grid */}
           <div className="grid grid-cols-3 gap-3 max-w-xs mx-auto">
-            {buildGrid().map(id => (
-              <button
-                key={id}
-                onClick={() => handleTileClick(id)}
-                className={`aspect-square rounded-2xl transition-all duration-150 border-2 font-bold text-white text-xl shadow-sm
-                  ${active === id || flashId === id
-                    ? 'bg-blue-300 border-blue-400 scale-110 shadow-lg'
-                    : phase === 'input'
-                      ? 'bg-blue-500 border-blue-600 hover:bg-blue-400 hover:scale-105 cursor-pointer active:scale-95'
-                      : 'bg-blue-500 border-blue-600 cursor-default opacity-80'
-                  }
-                  ${playerSeq.includes(id) && phase === 'input' ? 'opacity-50' : ''}
-                `}
-              >
-                {id + 1}
-              </button>
-            ))}
+              {buildGrid().map(id => {
+                const isFlashing = active === id || flashId === id
+                const style = isFlashing && seqMode === 'colors' && activeColor
+                  ? { backgroundColor: activeColor, borderColor: activeColor }
+                  : undefined
+                return (
+                  <button key={id} onClick={() => handleTileClick(id)}
+                    className={`aspect-square rounded-2xl border-2 font-bold text-white text-xl shadow-sm transition-all duration-150
+                      ${isFlashing
+                        ? 'scale-110 shadow-lg bg-blue-300 border-blue-400'
+                        : phase === 'input'
+                          ? 'bg-blue-500 border-blue-600 hover:bg-blue-400 hover:scale-105 cursor-pointer active:scale-95'
+                          : 'bg-blue-500 border-blue-600 cursor-default opacity-75'}
+                      ${playerSeq.includes(id) && phase === 'input' ? 'opacity-40' : ''}
+                    `}
+                    style={style}
+                  >{seqMode !== 'colors' && (id + 1)}</button>
+                )
+              })}
           </div>
 
           {/* Progress dots */}

@@ -1,22 +1,31 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import GameWrapper from '../../components/GameWrapper'
 import GameResult from '../../components/GameResult'
 import { useProgress } from '../../context/ProgressContext'
 import { GAMES } from '../../data/games'
 import { sounds } from '../../lib/sounds'
 
+// Card themes — each is a set of unique symbols used to form pairs
+const CARD_THEMES = {
+  nature:   { label: 'Nature',   easy: ['🌸','🌿','🦋','🌙','⭐','🍀'],       medium: ['🌸','🌿','🦋','🌙','⭐','🍀','🐢','🦜'],       hard: ['🌸','🌿','🦋','🌙','⭐','🍀','🐢','🦜','🌊','🔮'] },
+  animals:  { label: 'Animals',  easy: ['🐶','🐱','🐭','🐸','🦊','🐨'],       medium: ['🐶','🐱','🐭','🐸','🦊','🐨','🦁','🐯'],       hard: ['🐶','🐱','🐭','🐸','🦊','🐨','🦁','🐯','🦄','🐙'] },
+  symbols:  { label: 'Symbols',  easy: ['◆','★','▲','●','■','✿'],             medium: ['◆','★','▲','●','■','✿','♠','♣'],             hard: ['◆','★','▲','●','■','✿','♠','♣','♥','◎'] },
+  letters:  { label: 'Letters',  easy: ['A','B','C','D','E','F'],              medium: ['A','B','C','D','E','F','G','H'],              hard: ['A','B','C','D','E','F','G','H','J','K'] },
+  numbers:  { label: 'Numbers',  easy: ['1','2','3','4','5','6'],              medium: ['1','2','3','4','5','6','7','8'],              hard: ['1','2','3','4','5','6','7','8','9','10'] },
+}
+
 const EMOJI_SETS = {
-  easy:   ['🌸', '🌿', '🦋', '🌙', '⭐', '🍀'],
-  medium: ['🌸', '🌿', '🦋', '🌙', '⭐', '🍀', '🐢', '🦜'],
-  hard:   ['🌸', '🌿', '🦋', '🌙', '⭐', '🍀', '🐢', '🦜', '🌊', '🔮'],
+  easy:   CARD_THEMES.nature.easy,
+  medium: CARD_THEMES.nature.medium,
+  hard:   CARD_THEMES.nature.hard,
 }
 
 function shuffle(arr) {
   return [...arr].sort(() => Math.random() - 0.5)
 }
 
-function makeCards(level) {
-  const emojis = EMOJI_SETS[level]
+function makeCards(level, theme = 'nature') {
+  const emojis = CARD_THEMES[theme]?.[level] ?? EMOJI_SETS[level]
   return shuffle([...emojis, ...emojis].map((e, i) => ({
     id: i,
     emoji: e,
@@ -29,31 +38,33 @@ const game = GAMES.find(g => g.id === 'memory')
 
 export default function MemoryGame() {
   const { recordSession } = useProgress()
-  const [level, setLevel] = useState('easy')
-  const [cards, setCards] = useState(() => makeCards('easy'))
+  const [level, setLevel]   = useState('easy')
+  const [theme, setTheme]   = useState('nature')
+  const [cards, setCards]   = useState(() => makeCards('easy', 'nature'))
   const [flipped, setFlipped] = useState([])
-  const [moves, setMoves] = useState(0)
+  const [moves, setMoves]   = useState(0)
   const [matches, setMatches] = useState(0)
   const [locked, setLocked] = useState(false)
   const [gameOver, setGameOver] = useState(false)
-  const [started, setStarted] = useState(false)
+  const [started, setStarted]   = useState(false)
+  const startTime = useRef(null)
 
   const totalPairs = cards.length / 2
 
-  const resetGame = useCallback((lvl = level) => {
-    setCards(makeCards(lvl))
+  const resetGame = useCallback((lvl = level, th = theme) => {
+    setCards(makeCards(lvl, th))
     setFlipped([])
     setMoves(0)
     setMatches(0)
     setLocked(false)
     setGameOver(false)
     setStarted(false)
-  }, [level])
+  }, [level, theme])
 
   function handleCardClick(id) {
     if (locked || flipped.includes(id)) return
     if (cards.find(c => c.id === id)?.matched) return
-    if (!started) setStarted(true)
+    if (!started) { setStarted(true); startTime.current = Date.now() }
 
     sounds.cardFlip()
     const newFlipped = [...flipped, id]
@@ -75,8 +86,9 @@ export default function MemoryGame() {
         if (newMatches === totalPairs) {
           const accuracy = Math.max(0, Math.round(100 - ((moves + 1 - totalPairs) / totalPairs) * 50))
           const score = Math.max(0, 100 - (moves + 1 - totalPairs) * 5)
+          const duration = startTime.current ? Math.round((Date.now() - startTime.current) / 1000) : null
           setTimeout(() => sounds.sessionComplete(), 200)
-          recordSession('memory', score, accuracy)
+          recordSession('memory', score, accuracy, duration)
           setGameOver(true)
         }
       } else {
@@ -116,18 +128,20 @@ export default function MemoryGame() {
         <div className="text-center mb-8 animate-slide-up">
           <h2 className="font-display text-2xl text-slate-800 mb-2">Memory Card Match</h2>
           <p className="text-slate-500 mb-6 text-sm">Find all matching pairs. The fewer attempts, the better your score.</p>
-          <div className="flex justify-center gap-3 mb-6">
+          <div className="flex justify-center gap-2 mb-4">
             {['easy', 'medium', 'hard'].map(lvl => (
-              <button
-                key={lvl}
-                onClick={() => { setLevel(lvl); resetGame(lvl) }}
-                className={`capitalize px-5 py-2.5 rounded-xl font-medium text-sm transition-all ${
-                  level === lvl
-                    ? 'bg-indigo-500 text-white shadow-md'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
+              <button key={lvl} onClick={() => { setLevel(lvl); resetGame(lvl, theme) }}
+                className={`capitalize px-4 py-2 rounded-xl font-medium text-sm transition-all ${level === lvl ? 'bg-indigo-500 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
                 {lvl}
+              </button>
+            ))}
+          </div>
+          <div className="text-xs text-slate-400 font-semibold uppercase tracking-wide mb-2">Card theme</div>
+          <div className="flex flex-wrap justify-center gap-2 mb-6">
+            {Object.entries(CARD_THEMES).map(([key, t]) => (
+              <button key={key} onClick={() => { setTheme(key); resetGame(level, key) }}
+                className={`px-3 py-1.5 rounded-lg font-medium text-xs transition-all ${theme === key ? 'bg-indigo-100 text-indigo-700 border border-indigo-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
+                {t.label}
               </button>
             ))}
           </div>

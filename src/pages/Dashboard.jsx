@@ -1,11 +1,15 @@
 import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadarChart,
   Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis
 } from 'recharts'
-import { Flame, Trophy, Brain, ChevronRight, TrendingUp, Award } from 'lucide-react'
+import { Flame, Trophy, Brain, ChevronRight, TrendingUp, Award, ClipboardList, AlertCircle } from 'lucide-react'
 import { useProgress } from '../context/ProgressContext'
+import { useAuth } from '../context/AuthContext'
+import { supabase } from '../lib/supabase'
 import { GAMES, BADGES } from '../data/games'
+import { DOMAINS, scoreBand } from '../data/assessment'
 
 function StatCard({ label, value, sub, icon: Icon, color }) {
   return (
@@ -105,9 +109,101 @@ function BadgeItem({ badgeId, earned }) {
   )
 }
 
+const BIWEEKLY_DAYS = 14
+
+function AssessmentBanner({ assessments, user }) {
+  const hasOnboarding = assessments.some(a => a.type === 'onboarding')
+  const lastBiweekly  = assessments.filter(a => a.type === 'biweekly')
+    .sort((a, b) => new Date(b.completed_at) - new Date(a.completed_at))[0]
+
+  const daysSinceLast = lastBiweekly
+    ? Math.floor((Date.now() - new Date(lastBiweekly.completed_at)) / 86400000)
+    : null
+
+  const biweeklyDue = !lastBiweekly || daysSinceLast >= BIWEEKLY_DAYS
+
+  if (!user) return null
+  if (!hasOnboarding) return (
+    <div className="bg-gradient-to-r from-brand-600 to-indigo-600 rounded-2xl p-5 mb-6 flex items-center gap-4 text-white shadow-md">
+      <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center shrink-0 text-2xl">🧠</div>
+      <div className="flex-1">
+        <div className="font-semibold text-base mb-0.5">Take your onboarding assessment</div>
+        <div className="text-white/75 text-sm">Establish your baseline cognitive profile across 5 domains — takes 10–15 minutes.</div>
+      </div>
+      <Link to="/assessment?type=onboarding"
+        className="shrink-0 bg-white text-brand-700 font-semibold text-sm px-4 py-2.5 rounded-xl hover:bg-brand-50 transition-colors flex items-center gap-1.5">
+        Start <ChevronRight size={15} />
+      </Link>
+    </div>
+  )
+
+  if (biweeklyDue) return (
+    <div className="bg-gradient-to-r from-teal-600 to-cyan-600 rounded-2xl p-5 mb-6 flex items-center gap-4 text-white shadow-md">
+      <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+        <ClipboardList size={22} />
+      </div>
+      <div className="flex-1">
+        <div className="font-semibold text-base mb-0.5">Biweekly assessment ready</div>
+        <div className="text-white/75 text-sm">
+          {lastBiweekly ? `Last taken ${daysSinceLast} days ago.` : 'No biweekly assessment yet.'} Track your cognitive progress.
+        </div>
+      </div>
+      <Link to="/assessment?type=biweekly"
+        className="shrink-0 bg-white text-teal-700 font-semibold text-sm px-4 py-2.5 rounded-xl hover:bg-teal-50 transition-colors flex items-center gap-1.5">
+        Begin <ChevronRight size={15} />
+      </Link>
+    </div>
+  )
+
+  const daysLeft = BIWEEKLY_DAYS - daysSinceLast
+  return (
+    <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 mb-6 flex items-center gap-3">
+      <ClipboardList size={18} className="text-slate-400 shrink-0" />
+      <div className="text-sm text-slate-500">
+        Next biweekly assessment in <strong className="text-slate-700">{daysLeft} day{daysLeft !== 1 ? 's' : ''}</strong>.
+      </div>
+      <Link to="/dashboard#history" className="ml-auto text-brand-600 text-xs font-semibold hover:underline">
+        View history
+      </Link>
+    </div>
+  )
+}
+
+function AssessmentHistoryRow({ a }) {
+  const band = scoreBand(a.overall_score)
+  const date = new Date(a.completed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+  return (
+    <Link to={`/assessment/result/${a.id}`}
+      className="flex items-center gap-4 p-3 rounded-xl hover:bg-slate-50 transition-colors group">
+      <div className={`w-10 h-10 rounded-full border-2 ${band.border} ${band.bg} flex items-center justify-center shrink-0`}>
+        <span className={`text-sm font-bold ${band.color}`}>{a.overall_score}</span>
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-semibold text-slate-700 capitalize">{a.type} assessment</div>
+        <div className="text-xs text-slate-400">{date} · {band.label}</div>
+      </div>
+      <div className="flex gap-1 flex-wrap justify-end max-w-[140px]">
+        {[['M', a.score_memory], ['A', a.score_attention], ['W', a.score_working_mem], ['R', a.score_reasoning], ['P', a.score_processing]].map(([lbl, s]) => s != null && (
+          <span key={lbl} className="text-xs bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-mono">{lbl}:{s}</span>
+        ))}
+      </div>
+      <ChevronRight size={14} className="text-slate-300 group-hover:text-brand-500 transition-colors shrink-0" />
+    </Link>
+  )
+}
+
 export default function Dashboard() {
   const { progress, resetProgress } = useProgress()
+  const { user } = useAuth()
   const { streak, totalSessionsPlayed, badges, games } = progress
+  const [assessments, setAssessments] = useState([])
+
+  useEffect(() => {
+    if (!user) return
+    supabase.from('assessments').select('*').eq('user_id', user.id)
+      .order('completed_at', { ascending: false }).limit(20)
+      .then(({ data }) => setAssessments(data || []))
+  }, [user])
 
   const totalBestScore = Object.values(games).reduce((sum, g) => sum + g.bestScore, 0)
   const totalGamesPlayed = Object.values(games).filter(g => g.timesPlayed > 0).length
@@ -134,6 +230,9 @@ export default function Dashboard() {
       </div>
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 pb-20">
+        {/* Assessment banner — always show when signed in */}
+        <AssessmentBanner assessments={assessments} user={user} />
+
         {!hasAnyData ? (
           /* Empty state */
           <div className="text-center py-16">
@@ -243,6 +342,25 @@ export default function Dashboard() {
                 ))}
               </div>
             </div>
+
+            {/* Assessment history */}
+            {assessments.length > 0 && (
+              <div className="card mt-8" id="history">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold text-slate-800 flex items-center gap-2">
+                    <ClipboardList size={16} className="text-brand-500" />
+                    Assessment History
+                  </h3>
+                  <Link to="/assessment?type=biweekly"
+                    className="text-xs text-brand-600 font-semibold hover:text-brand-700 flex items-center gap-1">
+                    New assessment <ChevronRight size={12} />
+                  </Link>
+                </div>
+                <div className="divide-y divide-slate-50">
+                  {assessments.map(a => <AssessmentHistoryRow key={a.id} a={a} />)}
+                </div>
+              </div>
+            )}
 
             {/* Reset */}
             <div className="text-center mt-8">

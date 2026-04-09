@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import GameWrapper from '../../components/GameWrapper'
 import GameResult from '../../components/GameResult'
 import { useProgress } from '../../context/ProgressContext'
@@ -64,11 +64,48 @@ function shuffleArr(arr) {
   return [...arr].sort(() => Math.random() - 0.5)
 }
 
+// Fibonacci: 1,1,2,3,5,8… each number is sum of the previous two
+function makeFibPattern() {
+  const a = Math.floor(Math.random() * 3) + 1
+  const b = Math.floor(Math.random() * 3) + 1
+  const seq = [a, b, a + b, a + b + b, a + b + b + (a + b)]
+  const ans = seq[4]
+  const shown = seq.slice(0, 4)
+  const wrong = [ans + 1, ans + 2, ans - 1].filter(n => n !== ans && n > 0)
+  return { type: 'number', sequence: shown, answer: ans, options: shuffleArr([ans, ...wrong.slice(0, 3)]), hint: 'Each number is the sum of the two before it. What comes next?' }
+}
+
+// Geometric: ×2 or ×3 sequence
+function makeGeoPattern() {
+  const mult  = Math.random() > 0.5 ? 2 : 3
+  const start = Math.floor(Math.random() * 3) + 1
+  const seq   = [start, start * mult, start * mult ** 2, start * mult ** 3]
+  const ans   = start * mult ** 4
+  const wrong = [ans + 1, ans - mult, ans + mult].filter(n => n !== ans && n > 0)
+  return { type: 'number', sequence: seq, answer: ans, options: shuffleArr([ans, ...wrong.slice(0, 3)]), hint: `Each number is multiplied by ${mult}. What comes next?` }
+}
+
+// Alternating: odd/even size alternating shape sets
+function makeAlternatingShape() {
+  const setA = SHAPES[0]; const setB = SHAPES[1]; const setC = SHAPES[2]
+  const pattern = [setA, setB, setC, setA, setB]  // answer = setC
+  const ans = setC
+  const wrong = SHAPES.filter(s => s !== ans).slice(0, 3)
+  return { type: 'shape', sequence: pattern.slice(0, 4), answer: ans, options: shuffleArr([ans, ...wrong]), hint: 'Three shapes alternate in a repeating cycle. What comes next?' }
+}
+
 function makeQuestion(difficulty) {
-  const types = ['color', 'shape', 'number']
+  const types = difficulty === 'easy'
+    ? ['color', 'shape', 'number']
+    : difficulty === 'medium'
+      ? ['color', 'shape', 'number', 'alternating']
+      : ['color', 'shape', 'number', 'fibonacci', 'geometric', 'alternating']
   const type = types[Math.floor(Math.random() * types.length)]
-  if (type === 'color')  return makeColorPattern(difficulty)
-  if (type === 'shape')  return makeShapePattern(difficulty)
+  if (type === 'color')       return makeColorPattern(difficulty)
+  if (type === 'shape')       return makeShapePattern(difficulty)
+  if (type === 'fibonacci')   return makeFibPattern()
+  if (type === 'geometric')   return makeGeoPattern()
+  if (type === 'alternating') return makeAlternatingShape()
   return makeNumberPattern(difficulty)
 }
 
@@ -83,6 +120,7 @@ export default function PatternGame() {
   const [correct, setCorrect] = useState(0)
   const [feedback, setFeedback] = useState(null)
   const [selected, setSelected] = useState(null)
+  const startTime = useRef(null)
 
   function startGame(diff = difficulty) {
     const qs = Array.from({ length: TOTAL_QUESTIONS }, () => makeQuestion(diff))
@@ -91,6 +129,7 @@ export default function PatternGame() {
     setCorrect(0)
     setFeedback(null)
     setSelected(null)
+    startTime.current = Date.now()
     setPhase('playing')
   }
 
@@ -107,8 +146,9 @@ export default function PatternGame() {
       const nextIdx = qIdx + 1
       if (nextIdx >= TOTAL_QUESTIONS) {
         const accuracy = Math.round((newCorrect / TOTAL_QUESTIONS) * 100)
-        const score = accuracy
-        recordSession('pattern', score, accuracy)
+        const score    = accuracy
+        const duration = startTime.current ? Math.round((Date.now() - startTime.current) / 1000) : null
+        recordSession('pattern', score, accuracy, duration)
         setCorrect(newCorrect)
         setTimeout(() => sounds.sessionComplete(), 300)
         setPhase('result')

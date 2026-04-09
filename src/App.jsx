@@ -6,6 +6,9 @@ import Landing from './pages/Landing'
 import GameHub from './pages/GameHub'
 import Dashboard from './pages/Dashboard'
 import AuthPage from './pages/AuthPage'
+import Assessment from './pages/Assessment'
+import AssessmentResult from './pages/AssessmentResult'
+import Profile from './pages/Profile'
 import MemoryGame from './pages/games/MemoryGame'
 import StroopGame from './pages/games/StroopGame'
 import SequenceGame from './pages/games/SequenceGame'
@@ -60,6 +63,20 @@ function AppRoutes() {
       <Route path="/games/stroop"   element={<Layout><StroopGame /></Layout>} />
       <Route path="/games/sequence" element={<Layout><SequenceGame /></Layout>} />
       <Route path="/games/pattern"  element={<Layout><PatternGame /></Layout>} />
+
+      {/* Assessment — no Layout wrapper (has its own header) */}
+      <Route path="/assessment" element={
+        <ProtectedRoute><Assessment /></ProtectedRoute>
+      } />
+      <Route path="/assessment/result/:id" element={
+        <ProtectedRoute><AssessmentResult /></ProtectedRoute>
+      } />
+
+      <Route path="/profile" element={
+        <Layout>
+          <ProtectedRoute><Profile /></ProtectedRoute>
+        </Layout>
+      } />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

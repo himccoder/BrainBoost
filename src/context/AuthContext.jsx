@@ -61,10 +61,21 @@ export function AuthProvider({ children }) {
     return { error }
   }
 
+  /** Update any combination of name, date_of_birth, gender */
+  async function updateProfile(fields) {
+    if (!user) return { error: new Error('Not signed in') }
+    const { error } = await supabase
+      .from('profiles')
+      .update(fields)
+      .eq('id', user.id)
+    if (!error) setProfile(p => ({ ...p, ...fields }))
+    return { error }
+  }
+
   const loading = user === undefined
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signUp, signIn, signOut, updateName }}>
+    <AuthContext.Provider value={{ user, profile, loading, signUp, signIn, signOut, updateName, updateProfile }}>
       {children}
     </AuthContext.Provider>
   )

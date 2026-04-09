@@ -39,7 +39,7 @@ function buildProgressFromRows(sessions, badges) {
   for (const row of sorted) {
     const g = progress.games[row.game_id]
     if (!g) continue
-    g.sessions.push({ score: row.score, accuracy: row.accuracy, date: row.played_at })
+    g.sessions.push({ score: row.score, accuracy: row.accuracy, date: row.played_at, durationSeconds: row.duration_seconds ?? null })
     g.bestScore = Math.max(g.bestScore, row.score)
     g.timesPlayed += 1
     progress.totalSessionsPlayed += 1
@@ -95,7 +95,7 @@ export function ProgressProvider({ children }) {
     setSyncing(false)
   }, [])
 
-  async function recordSession(gameId, score, accuracy) {
+  async function recordSession(gameId, score, accuracy, durationSeconds = null) {
     const today = new Date().toDateString()
 
     setProgress(prev => {
@@ -109,7 +109,7 @@ export function ProgressProvider({ children }) {
       }
 
       const gameData = prev.games[gameId]
-      const newSession = { score, accuracy, date: new Date().toISOString() }
+      const newSession = { score, accuracy, date: new Date().toISOString(), ...(durationSeconds != null && { durationSeconds }) }
       const updatedSessions = [...(gameData.sessions || []).slice(-29), newSession]
 
       const newBadges = [...prev.badges]
@@ -142,10 +142,11 @@ export function ProgressProvider({ children }) {
     if (user) {
       // Save session
       await supabase.from('game_sessions').insert({
-        user_id:   user.id,
-        game_id:   gameId,
+        user_id:  user.id,
+        game_id:  gameId,
         score,
         accuracy,
+        ...(durationSeconds != null && { duration_seconds: durationSeconds }),
       })
 
       // Save any new badges
