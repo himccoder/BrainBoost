@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Brain, Zap, TrendingUp, Shield, ChevronRight, CheckCircle2, Sparkles } from 'lucide-react'
+import { Brain, Zap, TrendingUp, Shield, ChevronRight, CheckCircle2, Sparkles, ClipboardList, BarChart2, FileText } from 'lucide-react'
 import { GAMES } from '../data/games'
 
 const HOW_IT_WORKS = [
@@ -166,6 +166,110 @@ export default function Landing() {
                 <p className="text-slate-500 leading-relaxed">{desc}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Assessment & Reports Section */}
+      <section className="py-24 bg-gradient-to-b from-white to-brand-50/40">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+
+            {/* Left — copy */}
+            <div>
+              <div className="inline-flex items-center gap-2 bg-brand-50 border border-brand-100 text-brand-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-5">
+                <ClipboardList size={13} /> Cognitive Assessments
+              </div>
+              <h2 className="font-display text-4xl sm:text-5xl text-slate-900 leading-tight mb-5">
+                Know where you stand.
+                <br />
+                <span className="text-gradient">Track where you're going.</span>
+              </h2>
+              <p className="text-slate-500 text-lg leading-relaxed mb-6">
+                Beyond daily games, BrainBoost offers structured cognitive assessments — a 10–15 minute session that measures five brain domains using the same principles as validated clinical tools.
+              </p>
+              <ul className="space-y-3 mb-8">
+                {[
+                  { icon: Brain,        text: 'Five domains measured: memory, attention, working memory, reasoning, and processing speed' },
+                  { icon: BarChart2,    text: 'Scores benchmarked using neuropsychological norms (WAIS-IV, SDMT, Signal Detection Theory)' },
+                  { icon: FileText,     text: 'Printable report with your cognitive profile — designed to share with your neurologist or care team' },
+                  { icon: TrendingUp,   text: 'Biweekly check-ins track how your brain changes over time' },
+                ].map(({ icon: Icon, text }) => (
+                  <li key={text} className="flex items-start gap-3">
+                    <div className="w-6 h-6 rounded-lg bg-teal-100 flex items-center justify-center shrink-0 mt-0.5">
+                      <Icon size={13} className="text-teal-600" />
+                    </div>
+                    <span className="text-slate-600 text-sm leading-relaxed">{text}</span>
+                  </li>
+                ))}
+              </ul>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Link to="/signin" className="btn-primary inline-flex items-center justify-center gap-2">
+                  Take an assessment <ChevronRight size={17} />
+                </Link>
+                <Link to="/games" className="btn-secondary inline-flex items-center justify-center gap-2">
+                  Start with games first
+                </Link>
+              </div>
+            </div>
+
+            {/* Right — visual preview cards */}
+            <div className="relative">
+              {/* Soft background glow */}
+              <div className="absolute inset-0 bg-gradient-to-br from-brand-100/40 to-teal-100/40 rounded-3xl blur-2xl" />
+              <div className="relative space-y-3">
+
+                {/* Mock score card */}
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <div className="font-semibold text-slate-800 text-sm">Cognitive Profile</div>
+                      <div className="text-xs text-slate-400">Biweekly Assessment</div>
+                    </div>
+                    <div className="w-12 h-12 rounded-full border-4 border-teal-200 bg-teal-50 flex items-center justify-center">
+                      <span className="text-lg font-bold text-teal-700">74</span>
+                    </div>
+                  </div>
+                  <div className="space-y-2.5">
+                    {[
+                      { label: 'Episodic Memory',   score: 82, color: 'from-indigo-400 to-violet-500' },
+                      { label: 'Focused Attention', score: 71, color: 'from-sky-400 to-blue-500' },
+                      { label: 'Working Memory',    score: 68, color: 'from-blue-400 to-indigo-500' },
+                      { label: 'Fluid Reasoning',   score: 79, color: 'from-teal-400 to-cyan-500' },
+                      { label: 'Processing Speed',  score: 60, color: 'from-violet-400 to-purple-500' },
+                    ].map(({ label, score, color }) => (
+                      <div key={label}>
+                        <div className="flex justify-between text-xs text-slate-500 mb-1">
+                          <span>{label}</span><span className="font-semibold text-slate-700">{score}</span>
+                        </div>
+                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full bg-gradient-to-r ${color}`} style={{ width: `${score}%` }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Two small feature cards */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+                    <div className="w-8 h-8 rounded-xl bg-brand-50 flex items-center justify-center mb-2">
+                      <FileText size={15} className="text-brand-600" />
+                    </div>
+                    <div className="font-semibold text-slate-700 text-sm mb-1">Shareable report</div>
+                    <div className="text-slate-400 text-xs leading-snug">Print or save a PDF for your care team</div>
+                  </div>
+                  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+                    <div className="w-8 h-8 rounded-xl bg-teal-50 flex items-center justify-center mb-2">
+                      <TrendingUp size={15} className="text-teal-600" />
+                    </div>
+                    <div className="font-semibold text-slate-700 text-sm mb-1">Progress over time</div>
+                    <div className="text-slate-400 text-xs leading-snug">Every 2 weeks, see how you've grown</div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
           </div>
         </div>
       </section>
