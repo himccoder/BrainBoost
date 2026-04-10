@@ -128,7 +128,7 @@ The assessment result page includes a radar chart, domain score bars with brain 
 | **Clinical report** | Print-ready PDF with radar chart, domain scores, response-time data, and recommendations |
 | **Progress dashboard** | Score trends, streaks, badges, and assessment history with links to past reports |
 | **User profile** | Name, date of birth, and gender stored and shown in reports for clinical context |
-| **AI recommendations** | Gemini API integration (toggleable) for personalised narrative summaries per report |
+| **AI recommendations** (Currently Disabled) | Gemini API integration (toggleable) for personalised narrative summaries per report |
 | **Cloud sync** | Supabase authentication — progress saved across all devices |
 | **Offline fallback** | localStorage keeps progress for unauthenticated users |
 | **Soft sound design** | Web Audio API — gentle programmatic tones, no external audio files |
